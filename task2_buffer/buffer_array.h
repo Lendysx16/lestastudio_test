@@ -26,7 +26,7 @@ public:
 
     int size() {
         if (tail) {
-            if(tail > head)
+            if(tail >= head)
                 return tail - head + 1;
             return (end_of_array - head) + (head - container) + 1;
         }
@@ -41,6 +41,9 @@ public:
 
 template<typename T>
 buffer_array<T>::buffer_array(int capacity_) {
+    if(capacity_ < 1){
+        throw zero_capacity();
+    }
     capacity = capacity_;
     container = new T[capacity];
     head = container;
