@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include "my_exception.h"
 
 template<typename T>
 class buffer_list {
@@ -9,11 +10,14 @@ class buffer_list {
         Node *next;
     };
     Node *head = nullptr;
-    Node *last_element_added = nullptr;
+    Node *tail = nullptr;
     int capacity = 0;
     int elements_in_list = 0;
 public:
-    buffer_list(int capacity_);
+    buffer_list(int);
+
+    ~buffer_list();
+
 
     buffer_list(buffer_list<T> &&copyel) noexcept;
 
@@ -23,20 +27,22 @@ public:
 
     buffer_list<T> &operator=(const buffer_list<T> &copyel);
 
-    T pop();
+    int size() {
+        return elements_in_list;
+    }
 
-    ~buffer_list();
+    T pop();
 
     void push(T);
 
-    //iterator class
+
     class iterator {
         Node *now;
     public:
 
         iterator(Node *p = nullptr) : now(p) {};
 
-        const T &operator*() const { return  now->data;};
+        const T &operator*() const { return now->data; };
 
         bool operator==(const iterator &p) const { return now == p.now; }
 
@@ -54,19 +60,20 @@ public:
             }
             return iterator(tmp);
         }
+
         friend class buffer_list;
     };
 
-    iterator begin(){
+    iterator begin() {
         return iterator(head);
     }
-    iterator end(){
+
+    iterator end() {
         return iterator(nullptr);
     }
 };
 
 
-//realisation of buffer_list
 template<typename T>
 buffer_list<T>::buffer_list(int capacity_) {
     capacity = capacity_;
@@ -76,7 +83,7 @@ buffer_list<T>::buffer_list(int capacity_) {
 template<typename T>
 buffer_list<T>::~buffer_list() {
     Node *current = head;
-    while (current != last_element_added) {
+    while (current != tail) {
         Node *next = current->next;
         delete current;
         current = next;
@@ -85,26 +92,26 @@ buffer_list<T>::~buffer_list() {
 }
 
 template<typename T>
-void buffer_list<T>::push(T date) {
+void buffer_list<T>::push(T element) {
     if (elements_in_list == 0) {
         head = new Node;
-        head->data = date;
-        last_element_added = head;
+        head->data = element;
+        tail = head;
         ++elements_in_list;
         return;
     } else if (elements_in_list < capacity) {
-        last_element_added->next = new Node;
-        last_element_added = last_element_added->next;
-        last_element_added->data = date;
-        last_element_added->next = nullptr;
+        tail->next = new Node;
+        tail = tail->next;
+        tail->data = element;
+        tail->next = nullptr;
         ++elements_in_list;
         return;
     } else {
-        last_element_added->next = head;
-        last_element_added = head;
+        tail->next = head;
+        tail = head;
         head = head->next;
-        last_element_added->next = nullptr;
-        last_element_added->data = date;
+        tail->next = nullptr;
+        tail->data = element;
         return;
     }
 
@@ -116,14 +123,14 @@ buffer_list<T>::buffer_list(buffer_list<T> &copyel) {
     head = new Node;
     capacity = copyel.capacity;
     head->next = new Node;
-    last_element_added = head->next;
+    tail = head->next;
     for (auto i = 0; i < copyel.capacity - 2; i++) {
-        last_element_added->next = new Node;
-        last_element_added = last_element_added->next;
+        tail->next = new Node;
+        tail = tail->next;
     }
-    last_element_added->next = nullptr;
+    tail->next = nullptr;
     Node *current_node = head, *node_to_copy = copyel.head;
-    while (current_node != last_element_added) {
+    while (current_node != tail) {
         current_node->data = node_to_copy->data;
         current_node = current_node->next;
         node_to_copy = node_to_copy->next;
@@ -138,22 +145,22 @@ buffer_list<T>::buffer_list(buffer_list<T> &copyel) {
 template<typename T>
 buffer_list<T>::buffer_list(buffer_list<T> &&copyel) noexcept {
     head = copyel.head;
-    last_element_added = copyel.last_element_added;
+    tail = copyel.tail;
     capacity = copyel.capacity;
     elements_in_list = copyel.elements_in_list;
     copyel.head = nullptr;
-    copyel.last_element_added = nullptr;
+    copyel.tail = nullptr;
 }
 
 template<typename T>
 buffer_list<T> &buffer_list<T>::operator=(buffer_list<T> &&copyel) noexcept {
     if (this != &copyel) {
         head = copyel.head;
-        last_element_added = copyel.last_element_added;
+        tail = copyel.tail;
         capacity = copyel.capacity;
         elements_in_list = copyel.elements_in_list;
         copyel.head = nullptr;
-        copyel.last_element_added = nullptr;
+        copyel.tail = nullptr;
     }
     return *this;
 }
@@ -164,15 +171,15 @@ buffer_list<T> &buffer_list<T>::operator=(const buffer_list<T> &copyel) {
         capacity = copyel.capacity;
         head = new Node;
         head->next = new Node;
-        last_element_added = head->next;
+        tail = head->next;
         for (auto i = 0; i < capacity - 2; ++i) {
-            last_element_added->next = new Node;
-            last_element_added = last_element_added->next;
+            tail->next = new Node;
+            tail = tail->next;
         }
-        last_element_added->next = nullptr;
+        tail->next = nullptr;
         Node *current_node = head, *node_to_copy = copyel.head;
 
-        while (current_node != last_element_added) {
+        while (current_node != tail) {
             current_node->data = node_to_copy->data;
             current_node = current_node->next;
             node_to_copy = node_to_copy->next;
@@ -185,15 +192,18 @@ buffer_list<T> &buffer_list<T>::operator=(const buffer_list<T> &copyel) {
     }
 }
 
-template <typename T>
-T buffer_list<T>::pop(){
+template<typename T>
+T buffer_list<T>::pop() {
+    if(elements_in_list == 0) throw nothing_to_pop_exepction();
     --elements_in_list;
     auto tmp = head->data;
-    Node* deleted = head;
-    if(elements_in_list != 0)
+    Node *deleted = head;
+    if (elements_in_list != 0)
         head = head->next;
-    else {head = nullptr;
-    last_element_added = nullptr;}
+    else {
+        head = nullptr;
+        tail = nullptr;
+    }
     delete deleted;
     return tmp;
 }
